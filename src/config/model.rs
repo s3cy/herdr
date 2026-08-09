@@ -294,10 +294,21 @@ pub struct Config {
     pub update: UpdateConfig,
     pub keys: KeysConfig,
     pub ui: UiConfig,
+    pub notification: NotificationConfig,
     pub worktrees: WorktreesConfig,
     pub advanced: AdvancedConfig,
     pub experimental: ExperimentalConfig,
     pub remote: RemoteConfig,
+}
+
+/// Optional command to run when a notification is shown.
+#[derive(Debug, Default, Deserialize)]
+#[serde(default)]
+pub struct NotificationConfig {
+    /// Command string to execute (via the outer shell) whenever a notification is displayed.
+    /// The command receives the notification via HERDR_NOTIFICATION_TITLE, HERDR_NOTIFICATION_BODY,
+    /// and HERDR_NOTIFICATION_SOUND environment variables.
+    pub command: Option<String>,
 }
 
 #[derive(Debug)]

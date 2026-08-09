@@ -2025,10 +2025,14 @@ impl HeadlessServer {
         }
         let kind = toast_notify_kind(self.app.state.toast_config.delivery)
             .expect("terminal/system delivery has notify kind");
-        let shown = self.send_notify_to_foreground_client(kind, title, body);
+        let shown = self.send_notify_to_foreground_client(kind, title.clone(), body.clone());
         if shown {
             self.app.mark_api_notification_shown(Instant::now());
+            let body_str = body.as_deref().unwrap_or("");
             self.forward_api_notification_sound(params.sound);
+            if let Some(command) = self.app.state.notification_command.clone() {
+                self.app.spawn_notification_command(&command, &title, body_str, params.sound);
+            }
         }
         let reason = if shown {
             NotificationShowReason::Shown

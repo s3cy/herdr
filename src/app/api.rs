@@ -1236,6 +1236,17 @@ impl App {
             }
         };
 
+        if matches!(reason, NotificationShowReason::Shown) {
+            if let Some(command) = self.state.notification_command.clone() {
+                self.spawn_notification_command(
+                    &command,
+                    &params.title,
+                    params.body.as_deref().unwrap_or(""),
+                    requested_sound,
+                );
+            }
+        }
+
         responses::encode_success(
             id,
             ResponseResult::NotificationShow {
@@ -1261,6 +1272,40 @@ impl App {
 
     pub(crate) fn mark_api_notification_shown(&mut self, now: Instant) {
         self.last_api_notification_at = Some(now);
+    }
+
+    /// Run the user-configured `[notification].command` (if any) as a detached process,
+    /// passing the notification details through environment variables.
+    pub(crate) fn spawn_notification_command(
+        &mut self,
+        command: &str,
+        title: &str,
+        body: &str,
+        sound: crate::api::schema::NotificationShowSound,
+    ) {
+        let mut child = crate::platform::detached_custom_command_process(command);
+        child
+            .env("HERDR_NOTIFICATION_TITLE", title)
+            .env("HERDR_NOTIFICATION_BODY", body)
+            .env("HERDR_NOTIFICATION_SOUND", sound_name(sound))
+            .stdin(std::process::Stdio::null())
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null());
+        match child.spawn() {
+            Ok(process) => {
+                self.detached_custom_command_children.push(process);
+            }
+            Err(_) => {}
+        }
+    }
+}
+
+fn sound_name(sound: crate::api::schema::NotificationShowSound) -> &'static str {
+    use crate::api::schema::NotificationShowSound;
+    match sound {
+        NotificationShowSound::None => "none",
+        NotificationShowSound::Done => "done",
+        NotificationShowSound::Request => "request",
     }
 }
 
