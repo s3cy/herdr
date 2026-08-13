@@ -60,7 +60,7 @@ pub fn active_tab_suppresses_notifications(
     is_active_tab: bool,
     outer_terminal_focus: Option<bool>,
 ) -> bool {
-    is_active_tab && outer_terminal_focus != Some(false)
+    is_active_tab && outer_terminal_focus == Some(true)
 }
 
 #[cfg(test)]
@@ -5564,7 +5564,7 @@ mod tests {
 
     #[test]
     fn active_tab_suppression_preserves_unknown_focus_behavior() {
-        assert!(active_tab_suppresses_notifications(true, None));
+        assert!(!active_tab_suppresses_notifications(true, None));
         assert!(active_tab_suppresses_notifications(true, Some(true)));
         assert!(!active_tab_suppresses_notifications(true, Some(false)));
         assert!(!active_tab_suppresses_notifications(false, None));

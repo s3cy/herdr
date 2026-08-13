@@ -1948,11 +1948,32 @@ impl HeadlessServer {
         message: impl Into<String>,
         body: Option<String>,
     ) -> bool {
-        self.send_to_foreground_client(ServerMessage::Notify {
-            kind,
-            message: message.into(),
-            body,
-        })
+        let message = message.into();
+        let shown = self.send_to_foreground_client(ServerMessage::Notify {
+            kind: kind.clone(),
+            message: message.clone(),
+            body: body.clone(),
+        });
+        // Also run the user-configured `[notification].command` (e.g. tnotify) for
+        // agent/status toasts so completed agents raise a desktop notification,
+        // not just an OSC9 terminal toast. This is the same hook that
+        // `herdr notification show` uses; api.rs avoid double-firing below.
+        if shown
+            && matches!(
+                kind,
+                protocol::NotifyKind::Toast | protocol::NotifyKind::SystemToast
+            )
+        {
+            if let Some(command) = self.app.state.notification_command.clone() {
+                self.app.spawn_notification_command(
+                    &command,
+                    &message,
+                    body.as_deref().unwrap_or(""),
+                    api::schema::NotificationShowSound::Done,
+                );
+            }
+        }
+        shown
     }
 
     fn send_flat_toast_to_foreground_client(
@@ -2028,11 +2049,9 @@ impl HeadlessServer {
         let shown = self.send_notify_to_foreground_client(kind, title.clone(), body.clone());
         if shown {
             self.app.mark_api_notification_shown(Instant::now());
-            let body_str = body.as_deref().unwrap_or("");
+            // The `[notification].command` is fired inside send_notify_to_foreground_client
+            // (for Toast/SystemToast kinds), so no duplicate spawn is needed here.
             self.forward_api_notification_sound(params.sound);
-            if let Some(command) = self.app.state.notification_command.clone() {
-                self.app.spawn_notification_command(&command, &title, body_str, params.sound);
-            }
         }
         let reason = if shown {
             NotificationShowReason::Shown
